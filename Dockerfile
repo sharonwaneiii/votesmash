@@ -1,4 +1,3 @@
-# Base image
 FROM php:8.2-fpm
 
 # Install system dependencies
@@ -12,27 +11,36 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     git \
-    npm \
-    nodejs
+    curl
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Set working directory
+# Install Node.js 18.x
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
+
 WORKDIR /var/www
 
-# Copy app files
-COPY . .
-
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Install dependencies
+# Copy composer files and install PHP dependencies
+COPY composer.json composer.lock ./
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
-# Set permissions
+# Copy package files and build assets
+COPY package.json package-lock.json ./
+RUN npm install
+RUN npm run build
+
+# Copy rest of the app
+COPY . .
+
+# Permissions
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage
+    && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
+
+# Clean up apt caches
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 9000
 CMD ["php-fpm"]
