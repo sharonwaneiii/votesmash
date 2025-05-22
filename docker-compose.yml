@@ -12,6 +12,15 @@ services:
       - .:/var/www
     networks:
       - laravel
+    command: >
+        sh -c "composer install &&
+        cp .env.example .env &&
+        php artisan key:generate &&
+        php artisan migrate &&
+        npm install &&
+        npm run build &&
+        php-fpm"
+
 
   webserver:
     image: nginx:alpine
